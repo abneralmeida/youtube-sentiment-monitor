@@ -14,7 +14,29 @@ async function getLexicon() {
   if (LEXICON) return LEXICON;
   const url = chrome.runtime.getURL('lib/sentiment-lexicon.json');
   const res = await fetch(url);
-  LEXICON = await res.json();
+  const raw = await res.json();
+
+  // Normalize PT and EN keys to match tokenizer output (accent-free, lowercase).
+  // The tokenizer runs normalizeText() which strips diacritics, but some lexicon
+  // keys still carry accents (e.g. "incrível"). Without this step those entries
+  // are invisible to the scorer — the lookup key "incrivel" never matches "incrível".
+  for (const lang of ['pt', 'en']) {
+    if (!raw[lang]) continue;
+    const normalized = {};
+    for (const [key, val] of Object.entries(raw[lang])) {
+      const normKey = key
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      // Keep highest absolute score when accent-free forms collide
+      if (!(normKey in normalized) || Math.abs(val) > Math.abs(normalized[normKey])) {
+        normalized[normKey] = val;
+      }
+    }
+    raw[lang] = normalized;
+  }
+
+  LEXICON = raw;
   return LEXICON;
 }
 
@@ -195,8 +217,10 @@ async function scoreMessage(msg) {
     if (s !== 0) matched++;
   }
 
-  // Normalize by token count (before irony check)
-  const normalizedScore = rawScore * capsFactor / Math.max(1, tokens.length);
+  // Normalize by MATCHED token count (not total tokens). Dividing by total
+  // tokens massively dilutes the signal — "que lixo de jogo" scores -0.125
+  // instead of -0.75 because 5 unmatched tokens drag the average toward zero.
+  const normalizedScore = rawScore * capsFactor / Math.max(1, matched);
   let score = Math.max(-1, Math.min(1, normalizedScore / 4));
 
   // Irony detection — must happen BEFORE laughter bonus
@@ -863,12 +887,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         state.vodMessages.push({ ...msg, score, weight, isIronic: !!isIronic });
         state.vodSession.totalMessages++;
         if (msg.type === 'super_chat') state.vodSession.totalSuperChats++;
-        // Track word frequency
-        for (const token of tokenize(msg.text || '')) {
-          if (token.length > 2 && !STOP_WORDS.has(token)) {
-            state.sessionWordFreq[token] = (state.sessionWordFreq[token] || 0) + 1;
-          }
-        }
+        // Word frequency is already tracked inside scoreMessage() — no need
+        // to tokenize and count again here (was causing double-counting).
       }
       sendResponse({ ok: true, processed: state.vodMessages.length });
     })();

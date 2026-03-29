@@ -469,13 +469,18 @@
                         || item.liveChatMembershipItemRenderer;
           if (!renderer) continue;
 
-          // Reconstruct text from runs (supports emoji alt text)
+          // Reconstruct text from runs.
+          // Only include actual text runs — emoji runs are captured separately
+          // in the emojis array. Previously, emoji shortcodes (:blue:) and
+          // internal emojiIds (UCxxx/hash) leaked into the text field, polluting
+          // the word frequency map with non-words.
           const runs = renderer.message?.runs
                     || renderer.headerSubtext?.runs
                     || [];
-          const text = runs.map(r =>
-            r.text || r.emoji?.shortcuts?.[0] || r.emoji?.emojiId || ''
-          ).join('');
+          const text = runs
+            .filter(r => r.text)
+            .map(r => r.text)
+            .join('');
 
           // Timestamp: microseconds → ms
           const ts = renderer.timestampUsec
