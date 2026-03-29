@@ -284,12 +284,18 @@ body {
 
 .peak-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 10px;
   background: var(--surface);
   border-radius: var(--radius);
   border-left: 3px solid var(--amber);
+}
+
+.peak-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .peak-time {
@@ -297,7 +303,8 @@ body {
   color: var(--amber);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  min-width: 44px;
+  min-width: 38px;
+  font-weight: 600;
 }
 
 .peak-rate {
@@ -310,6 +317,13 @@ body {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.peak-summary {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding-left: 2px;
 }
 
 /* ── Idle Placeholder ── */

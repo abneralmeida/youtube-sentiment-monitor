@@ -295,7 +295,7 @@
       const peaks = tickBuffer.filter(t => t.isPeak);
       if (peaks.length > 0) {
         peaksSection.classList.remove('hidden');
-        renderPeaks(peaks);
+        renderPeaks(peaks, activeSession.startedAt);
       }
     }
   }
@@ -333,15 +333,44 @@
     ).join('');
   }
 
-  function renderPeaks(peaks) {
-    const shown = peaks.slice(-5); // last 5 peaks
-    peaksList.innerHTML = shown.map(t => `
-      <div class="peak-item">
-        <span class="peak-time">${formatTime(t.timestamp)}</span>
-        <span class="peak-rate">↑ ${(t.chatRate / Math.max(1, t.chatRate * 0.5)).toFixed(1)}x</span>
-        <span class="peak-score">score: ${t.windowScore >= 0 ? '+' : ''}${t.windowScore.toFixed(2)}</span>
-      </div>
-    `).join('');
+  function formatElapsed(ms) {
+    if (ms < 0) ms = 0;
+    const total = Math.floor(ms / 1000);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function buildPeakSummary(t) {
+    const parts = [];
+    const mood = MOOD_LABELS[t.windowLabel] || t.windowLabel;
+    parts.push(mood);
+    if (t.peakKeywords && t.peakKeywords.length > 0) {
+      parts.push(t.peakKeywords.join(', '));
+    }
+    if (t.ironicRatio > 0.35) parts.push('ironia predominante');
+    return parts.join(' · ').slice(0, 300);
+  }
+
+  function renderPeaks(peaks, sessionStartedAt) {
+    const shown = peaks.slice(-5);
+    peaksList.innerHTML = shown.map(t => {
+      const elapsed = sessionStartedAt ? formatElapsed(t.timestamp - sessionStartedAt) : formatTime(t.timestamp);
+      const summary = buildPeakSummary(t);
+      const scoreStr = (t.windowScore >= 0 ? '+' : '') + t.windowScore.toFixed(2);
+      return `
+        <div class="peak-item">
+          <div class="peak-item-top">
+            <span class="peak-time">${elapsed}</span>
+            <span class="peak-rate">↑ ${t.chatRate} /min</span>
+            <span class="peak-score">score: ${scoreStr}</span>
+          </div>
+          ${summary ? `<div class="peak-summary">${escHtml(summary)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
   }
 
   // ─── History ──────────────────────────────────────────────────────────

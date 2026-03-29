@@ -344,6 +344,21 @@ async function processTick() {
 
   const isPeak = state.avgChatRate > 5 && chatRate > state.avgChatRate * 2;
 
+  // If this is a peak, compute keywords specific to THIS window (not session-wide)
+  // so the peak summary reflects what was being discussed at that moment
+  let peakKeywords = null;
+  if (isPeak) {
+    const wf = {};
+    for (const m of windowMessages) {
+      for (const token of tokenize(m.text || '')) {
+        if (token.length > 2 && !STOP_WORDS.has(token)) {
+          wf[token] = (wf[token] || 0) + 1;
+        }
+      }
+    }
+    peakKeywords = Object.entries(wf).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([w]) => w);
+  }
+
   // Irony ratio in this window
   const ironicCount = windowMessages.filter(m => m.isIronic).length;
   const ironicRatio = windowMessages.length > 0 ? ironicCount / windowMessages.length : 0;
@@ -376,6 +391,7 @@ async function processTick() {
     membershipCount,
     topKeywords,
     isPeak,
+    peakKeywords,
     ironicRatio: parseFloat(ironicRatio.toFixed(3)),
     emotionScores
   };
@@ -890,6 +906,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const isPeak        = avgRate > 5 && chatRate > avgRate * 2;
         const emotionScores = computeEmotionScores(windowMsgs);
 
+        let peakKeywords = null;
+        if (isPeak) {
+          const wf = {};
+          for (const m of windowMsgs) {
+            for (const token of tokenize(m.text || '')) {
+              if (token.length > 2 && !STOP_WORDS.has(token)) {
+                wf[token] = (wf[token] || 0) + 1;
+              }
+            }
+          }
+          peakKeywords = Object.entries(wf).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([w]) => w);
+        }
+
         // Session-wide top keywords snapshot at this tick
         const topKeywords = Object.entries(state.sessionWordFreq)
           .sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w);
@@ -908,6 +937,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           membershipCount: memberCount,
           topKeywords,
           isPeak,
+          peakKeywords,
           ironicRatio: parseFloat(ironicRatio.toFixed(3)),
           emotionScores
         };

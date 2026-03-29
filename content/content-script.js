@@ -150,11 +150,17 @@
 
     let text = '';
     if (textEl) {
-      // Collect text nodes and emoji alt text
+      // Collect text nodes and emoji alt text.
+      // YouTube custom channel/membership emojis have alt like ":blue:" or ":fluxo:".
+      // Skip those from text — they are engagement markers, not words, and would
+      // pollute the keywords section after normalization strips the colons.
       text = [...textEl.childNodes].map(node => {
         if (node.nodeType === Node.TEXT_NODE) return node.textContent;
         if (node.tagName && node.tagName.toLowerCase() === 'img') {
-          return node.getAttribute('alt') || node.getAttribute('aria-label') || '';
+          const alt = node.getAttribute('alt') || node.getAttribute('aria-label') || '';
+          // YouTube shortcode pattern: :word: — skip it from text
+          if (/^:[a-zA-Z0-9_-]{1,40}:$/.test(alt)) return '';
+          return alt;
         }
         return node.textContent || '';
       }).join('');
