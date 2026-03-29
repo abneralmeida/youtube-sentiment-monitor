@@ -90,12 +90,17 @@
   }
 
   function isCurrentlyLive() {
-    // Check for LIVE badge
-    const badge = document.querySelector(
-      '.ytp-live-badge, .ytd-badge-supported-renderer[aria-label="LIVE"], ' +
-      'yt-live-chat-app, ytd-live-chat-frame'
+    // .ytp-live-badge  — the red "LIVE" button in the player (only present during
+    //                    an active broadcast, not for chat replays)
+    // badge-style-type-live-now — the LIVE pill shown on the video metadata
+    //
+    // Deliberately excluded: ytd-live-chat-frame and yt-live-chat-app — these
+    // elements are present for BOTH live streams and chat replays, so they
+    // cannot be used to distinguish between the two states.
+    return !!(
+      document.querySelector('.ytp-live-badge') ||
+      document.querySelector('.badge-style-type-live-now')
     );
-    return !!badge;
   }
 
   // ─── Message Sending ──────────────────────────────────────────────────────
