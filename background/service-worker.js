@@ -729,8 +729,26 @@ function buildSparklineSVG(events) {
 
 // ─── Message Listeners ────────────────────────────────────────────────────
 
+// Message types that modify session state must come from a verified YouTube tab.
+// This prevents a compromised or malicious page from injecting fake chat events.
+const SESSION_EVENTS = new Set([
+  'STREAM_START', 'STREAM_END',
+  'CHAT_BATCH', 'CHAT_MESSAGE',
+  'VIEWER_COUNT',
+  'VOD_ANALYSIS_START', 'VOD_MESSAGES_BATCH', 'VOD_ANALYSIS_COMPLETE'
+]);
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const { type } = message;
+
+  // Guard: session-modifying events must originate from a YouTube tab
+  if (SESSION_EVENTS.has(type)) {
+    const tabUrl = sender.tab?.url || '';
+    if (!tabUrl.startsWith('https://www.youtube.com/')) {
+      sendResponse({ ok: false, error: 'unauthorized' });
+      return false;
+    }
+  }
 
   if (type === 'PING') {
     sendResponse({ ok: true });

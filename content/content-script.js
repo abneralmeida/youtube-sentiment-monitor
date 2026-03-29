@@ -338,6 +338,9 @@
     return new Promise(resolve => {
       const msgId = '__ysm_' + Date.now();
       window.addEventListener('message', function handler(e) {
+        // Only accept messages from the same origin — prevents spoofing by
+        // third-party iframes or injected scripts on the page
+        if (e.origin !== location.origin) return;
         if (e.data?.type !== msgId) return;
         window.removeEventListener('message', handler);
         resolve(e.data.payload || null);
@@ -414,14 +417,20 @@
     let page = 0;
     const MAX_PAGES = 200; // cap ~20k msgs for safety
 
-    const YT_API_KEY = apiKey || 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+    // Use values extracted live from the page context (via readYtInitialData).
+    // No hardcoded fallback keys — if the page doesn't provide them, we omit
+    // the key parameter and let YouTube reject gracefully rather than
+    // embedding a public key in the source code.
+    const YT_API_KEY = apiKey || null;
     const YT_CLIENT_VERSION = clientVersion || '2.20240329.01.00';
 
     while (token && page < MAX_PAGES && vodAnalysisRunning) {
       let data;
       try {
-        const resp = await fetch(
-          `/youtubei/v1/live_chat/get_live_chat_replay?key=${YT_API_KEY}`,
+        const endpoint = YT_API_KEY
+          ? `/youtubei/v1/live_chat/get_live_chat_replay?key=${YT_API_KEY}`
+          : `/youtubei/v1/live_chat/get_live_chat_replay`;
+        const resp = await fetch(endpoint,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
